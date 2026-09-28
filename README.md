@@ -148,5 +148,7 @@ The core synthesis loops handle dynamic mathematical time signatures and state m
 
 ## 📄 License
 
-This project is open-source software. Feel free to modify, fork, and jam with it responsibly!
+This project is open-source software licensed under the terms of the **MIT License**. Check out the `LICENSE` file template for comprehensive legal guidelines.
+
+Feel free to modify, fork, and jam with it responsibly!
 
