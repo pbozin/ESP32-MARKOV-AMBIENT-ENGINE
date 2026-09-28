@@ -48,47 +48,68 @@ Modify the behavior of the engine by defining flags at the top of your main code
 
 ---
 
-## 🎹 MIDI Implementation Details
+## 🎛️ Architecture & Channel Mapping
 
-### Channel Mapping Layouts
+The engine supports two distinct routing architectures depending on the target hardware synthesizer configuration.
 
-[Standard Hardware Matrix Layout]
-Channels 01 - 04 ───► Synth Modules
-Channels 05 - 08 ───► Bass Engines
-Channels 09 - 12 ───► Drums / Percussion
-Channels 13 - 16 ───► Closed & Open Hi-Hats
-[SYNTH_XFM Optimized Mapping Layout]
-Channel 01 ───► Drums Channel 02 ───► Bass
-Channel 03 ───► Hats Channel 04 ───► Synth (Dual Patch Control via CC 29/31)
+### 1. Standard Hardware Matrix Layout
+Designed for multi-timbral desktop synthesizers or multiple hardware modules.
+* **Channels 01 - 04** ───► Synth Modules
+* **Channels 05 - 08** ───► Bass Engines
+* **Channels 09 - 12** ───► Drums / Percussion
+* **Channels 13 - 16** ───► Closed & Open Hi-Hats
 
-* **`CC 29` & `CC 31`**: XFM Dual Synth Engine Patch Selectors
-* **`CC 74`**: Synth Filter Cutoff (Driven by Fractal Noise + Bar Drift)
-* **`CC 83`**: Bass Modulation / Filter Contour (Driven by Fractal Noise + Bar Drift)
-* **`CC 123`**: All Notes Off (Failsafe Note Killer)
+### 2. SYNTH_XFM Optimized Mapping Layout
+A compact, highly efficient 4-channel profile ideal for streamlined polyphonic gear.
+* **Channel 01** ───► Drums
+* **Channel 02** ───► Bass
+* **Channel 03** ───► Hats
+* **Channel 04** ───► Synth *(Dual Patch Control via CC 29 / 31)*
+
+---
+
+## 🕹️ MIDI Continuous Controllers (CC) Reference
+
+The engine dynamically shapes sound textures over time by dispatching structural CC changes:
+
+| CC Number | Target / Parameter | Modulation Source |
+| :--- | :--- | :--- |
+| **CC 29** | XFM Dual Synth Engine | Patch Selector A |
+| **CC 31** | XFM Dual Synth Engine | Patch Selector B |
+| **CC 74** | Synth Filter Cutoff | `generateFractalNoise()` + Multi-Bar Drift |
+| **CC 83** | Bass Modulation / Filter Contour | `generateFractalNoise()` + Multi-Bar Drift |
+| **CC 123**| All Notes Off | Failsafe Structural Note Killer |
+
+---
 
 ## 💻 Core Engine Structure & Scheduling
 
-[Hardware Clock Tick]
-│
-▼
-┌───────────────────┐
-│ runPsybientEngine │ ◄── Calculates step variables (Base, Double, Quad Bars)
-└─────────┬─────────┘
-│
-┌─────────┴─────────┐
-│ Step Check? │
-└────┬─────────┬────┘
-│ │
-[Quad-Bar Tail] [Step Quad == 0]
-│ │
-▼ ▼
-┌───────────────────────┐ ┌────────────────────┐
-│ processMicroEvolution │ │ Markov Generation │ ──► Steps smoothly through chords
-└────────────┬──────────┘ └────────────────────┘
-│
-┌─────────┴─────────┐
-│ Check Bar Counts │ ──► Triggers 'transitionToNextArtist()' when threshold met
-└───────────────────┘
+The core synthesis loops handle dynamic mathematical time signatures and state management inside the hardware clock window:
+
+```text
+       [Hardware Clock Tick]
+                 │
+                 ▼
+     ┌───────────────────────┐
+     │  runPsybientEngine()  │ ◄─── Calculates step variables 
+     └───────────┬───────────┘      (Base, Double, Quad Bars)
+                 │
+        ┌────────┴────────┐
+        │   Step Check?   │
+        └───┬───────────┬─┘
+            │           │
+     [Quad-Bar Tail]   [Step Quad == 0]
+            │           │
+            ▼           ▼
+┌───────────────────────┐   ┌────────────────────┐
+│ processMicroEvolution │   │ Markov Generation  │ ──► Steps smoothly
+└───────────┬───────────┘   └────────────────────┘     through chords
+            │
+            ▼
+┌───────────────────────┐
+│   Check Bar Counts    │ ──► Triggers transitionToNextArtist()
+└───────────────────────┘     when threshold is met
+```
 
 ### Functional Component Deep Dive
 
